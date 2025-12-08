@@ -8,13 +8,15 @@ const USERS_DB = [
     id: 101,
     email: "admin@crm.com",
     role: "admin",
-    passwordHash: "$2a$10$B59U8fQo.5hBwO9o/iK7N.T7J/4jD/k6ZzXp.nE3U4mZ/oE5zS7U",
+    passwordHash:
+      "$2b$10$qKYZv.p/tDuTsc6fpCdalujzaFg0B4.GkB99ZIocHBKdxSgbGgiOC",
   },
   {
     id: 102,
     email: "client@crm.com",
     role: "client",
-    passwordHash: "$2a$10$B59U8fQo.5hBwO9o/iK7N.T7J/4jD/k6ZzXp.nE3U4mZ/oE5zS7U",
+    passwordHash:
+      "$2b$10$qKYZv.p/tDuTsc6fpCdalujzaFg0B4.GkB99ZIocHBKdxSgbGgiOC",
   },
 ];
 
@@ -33,7 +35,9 @@ router.post("/login", async (req, res) => {
   const isMatch = await bcrypt.compare(password, user.passwordHash);
 
   if (!isMatch) {
-    return res.status(401).json("fucking password or lofin is incorrect!");
+    return res
+      .status(401)
+      .json({ message: "fucking password or login is incorrect!" });
   }
 
   const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
