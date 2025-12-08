@@ -1,0 +1,31 @@
+/* client/src/components/AdminDashboard.css (Добавьте или измените стили) */
+
+/* Общий стиль для кликабельного блока */
+.clickable-box {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.clickable-box:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* 1. Клиенты (старый, уже был зеленый) */
+.client-box {
+  border-left-color: #28a745; /* Green */
+}
+
+/* 2. Заказы */
+.order-box {
+  border-left-color: #007bff; /* Blue */
+}
+
+/* 3. Доставка */
+.shipping-box {
+  border-left-color: #ffc107; /* Yellow/Orange */
+}
+
+/* 4. Отмены */
+.cancellation-box {
+  border-left-color: #dc3545; /* Red */
+}

@@ -1,104 +1,65 @@
-// client/src/components/Login.js
-import { useState } from "react";
-import "./Login.css"; // <--- КЛЮЧЕВОЙ МОМЕНТ: Импорт стилей
+import React, { useState } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom"; // Импорт хука для навигации
+import "./Login.css";
+
+// Базовая URL для запросов
+const API_URL = "http://localhost:5000/api/auth";
 
 const Login = () => {
-  // Состояния для данных формы и сообщений
-  const [email, setEmail] = useState("admin@crm.com");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  // Состояния для тестирования ролей
-  const [profileData, setProfileData] = useState("Не проверено");
-  const [adminData, setAdminData] = useState("Не проверено");
-  const [clientData, setClientData] = useState("Не проверено");
+  // Инициализируем функцию для программной навигации
+  const navigate = useNavigate();
 
-  // --- ФУНКЦИЯ ВХОДА И ПОЛУЧЕНИЯ ТОКЕНА (Остается без изменений) ---
+  // Обработчик отправки формы
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("Попытка входа...");
+    setMessage("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const response = await axios.post(`${API_URL}/login`, {
+        email,
+        password,
       });
 
-      const data = await response.json();
+      // Успешный вход
+      const { token, user } = response.data;
+      const role = user.role;
 
-      if (response.ok) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("userRole", data.user.role);
-        setMessage(`Successful login! You're ${data.user.role}`);
+      // Сохраняем токен и роль в локальное хранилище
+      localStorage.setItem("token", token);
+      localStorage.setItem("userRole", role);
+
+      setMessage("Вход успешен!");
+
+      // Логика перенаправления
+      if (role === "admin") {
+        // Если админ, переходим на панель клиентов
+        navigate("/admin");
       } else {
-        setMessage(`${data.message || "Неизвестная ошибка"}`);
+        navigate("/profile-placeholder");
       }
     } catch (error) {
-      setMessage("Проблема с подключением к серверу (порт 5000).");
       console.error("Login error:", error);
-    }
-  };
-
-  // --- ФУНКЦИИ ПРОВЕРКИ ЗАЩИЩЕННЫХ РОУТОВ (Используют общую функцию) ---
-  const sendProtectedRequest = async (endpoint, setDataState) => {
-    const token = localStorage.getItem("token");
-    setDataState("Запрос данных...");
-
-    if (!token) {
-      setDataState("Токен отсутствует. Войдите.");
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `http://localhost:5000/api/data${endpoint}`,
-        {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      setMessage(
+        error.response?.data?.message ||
+          "Ошибка входа. Проверьте учетные данные."
       );
-
-      const data = await response.json();
-      const statusClass = response.ok ? "Успех" : "Ошибка";
-
-      if (response.ok) {
-        setDataState(`${statusClass} (${data.userRole}): ${data.message}`);
-      } else {
-        setDataState(`${statusClass} ${response.status} - ${data.message}`);
-      }
-    } catch (error) {
-      setDataState("Ошибка подключения к серверу.");
-      console.error("Protected request error:", error);
     }
   };
 
-  const handleProfileRequest = () =>
-    sendProtectedRequest("/profile", setProfileData);
-  const handleAdminRequest = () =>
-    sendProtectedRequest("/admin-dashboard", setAdminData);
-  const handleClientRequest = () =>
-    sendProtectedRequest("/my-orders", setClientData);
-
-  // --- ФУНКЦИЯ ВЫХОДА (Очистка токена) ---
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userRole");
-    setMessage("Вы вышли из системы.");
-    setProfileData("Не проверено");
-    setAdminData("Не проверено");
-    setClientData("Не проверено");
-  };
-
+  // JSX компонента Login
   return (
     <div className="login-container">
-      {" "}
-      <h2>CRM Авторизация</h2>
+      <h2>Вход в CRM</h2>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          {" "}
-          <label>Email:</label>
+          <label htmlFor="email">Email:</label>
           <input
+            id="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -106,27 +67,25 @@ const Login = () => {
           />
         </div>
         <div className="form-group">
-          {" "}
-          <label>Пароль:</label>
+          <label htmlFor="password">Пароль:</label>
           <input
+            id="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
         </div>
-        <button type="submit" className="btn btn-primary">
-          {" "}
+
+        <button type="submit" className="login-button">
           Войти
         </button>
       </form>
-      <p
-        className={`status-message ${
-          message.startsWith("") ? "error" : "success"
-        }`}
-      >
-        {message}
-      </p>
+
+      {/* Сообщение об успехе или ошибке */}
+      {message && <p className="message">{message}</p>}
+
+      {/* Здесь могут быть кнопки регистрации или сброса пароля */}
     </div>
   );
 };

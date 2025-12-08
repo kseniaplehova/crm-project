@@ -40,5 +40,26 @@ router.get(
     });
   }
 );
+router.post(
+  "/clients", // Путь относительно /api/data
+  authMiddleware,
+  roleMiddleware("admin"),
+  (req, res) => {
+    const { name, email, phone } = req.body;
+
+    // Имитируем сохранение и возвращаем новый объект клиента
+    const newClient = {
+      id: Date.now(),
+      name,
+      email,
+      phone,
+      role: "client",
+      created: new Date().toISOString().split("T")[0],
+    };
+
+    console.log(`[SERVER] Новый клиент добавлен: ${newClient.name}`);
+    return res.status(201).json(newClient);
+  }
+);
 
 module.exports = router;
