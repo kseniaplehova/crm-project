@@ -2,53 +2,66 @@ const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+// Импортируем готовый экземпляр БД
+const { db } = require("../config/db");
 
-const USERS_DB = [
-  {
-    id: 101,
-    email: "admin@crm.com",
-    role: "admin",
-    passwordHash:
-      "$2b$10$qKYZv.p/tDuTsc6fpCdalujzaFg0B4.GkB99ZIocHBKdxSgbGgiOC",
-  },
-  {
-    id: 102,
-    email: "client@crm.com",
-    role: "client",
-    passwordHash:
-      "$2b$10$qKYZv.p/tDuTsc6fpCdalujzaFg0B4.GkB99ZIocHBKdxSgbGgiOC",
-  },
-];
-
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || "your_default_secret_key";
 
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  const user = USERS_DB.find((u) => u.email === email);
+  console.log(`[AUTH] Попытка входа для email: ${email}`);
 
-  if (!user) {
-    return res
-      .status(401)
-      .json({ message: "fucking password or login is incorrect!" });
+  try {
+    // db.get: получает одну строку. ? - плейсхолдеры SQLite
+    const user = await new Promise((resolve, reject) => {
+      db.get(
+        "SELECT ClientID, PasswordHash, Role, Name FROM Clients WHERE Email = ?",
+        [email],
+        (err, row) => {
+          if (err) return reject(err);
+          resolve(row); // row будет undefined, если не найдено
+        }
+      );
+    });
+    console.log(
+      "[AUTH] Результат поиска (user):",
+      user ? "НАЙДЕН" : "НЕ НАЙДЕН"
+    );
+    if (!user) {
+      return res
+        .status(401)
+        .json({ message: "Неправильный логин или пароль." });
+    }
+
+    // SQLite сохраняет роль в нижнем регистре. Сравниваем хэши.
+    const isMatch = await bcrypt.compare(password, user.PasswordHash);
+
+    if (!isMatch) {
+      return res
+        .status(401)
+        .json({ message: "Неправильный логин или пароль." });
+    }
+
+    const payLoad = {
+      id: user.ClientID,
+      role: user.Role,
+    };
+    const token = jwt.sign(payLoad, JWT_SECRET, { expiresIn: "1h" });
+
+    return res.json({
+      message: "Вход успешен!",
+      token,
+      user: {
+        id: user.ClientID,
+        email: email,
+        role: user.Role,
+        name: user.Name,
+      },
+    });
+  } catch (error) {
+    console.error("Ошибка аутентификации SQLite:", error);
+    return res.status(500).json({ message: "Ошибка сервера при входе." });
   }
-
-  const isMatch = await bcrypt.compare(password, user.passwordHash);
-
-  if (!isMatch) {
-    return res
-      .status(401)
-      .json({ message: "fucking password or login is incorrect!" });
-  }
-
-  const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-    expiresIn: "1h",
-  });
-
-  res.status(200).json({
-    message: "Successful!",
-    token,
-    user: { id: user.id, email: user.email, role: user.role },
-  });
 });
 
 module.exports = router;

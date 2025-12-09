@@ -1,65 +1,113 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./ClientList.css";
-import ClientModal from "./ClientModal"; // <-- Импортируем модальное окно
+import ClientModal from "./ClientModal";
 
-// Временный массив мок-данных с добавлением поля 'role'
-const INITIAL_CLIENTS = [
-  {
-    id: 1,
-    name: "Иванов И.И.",
-    email: "ivanov@example.com",
-    created: "2023-10-01",
-    role: "client",
-  },
-  {
-    id: 2,
-    name: "Петрова А.С.",
-    email: "petrova@example.com",
-    created: "2023-10-15",
-    role: "client",
-  },
-  {
-    id: 3,
-    name: "Сидоров П.В.",
-    email: "sidorov@example.com",
-    created: "2023-11-05",
-    role: "client",
-  },
-];
+// --- УДАЛЯЕМ МОК-ДАННЫЕ ---
+// const INITIAL_CLIENTS = [...]
+
+const API_URL_BASE = "http://localhost:5000/api/data/clients";
 
 const ClientList = () => {
-  // Добавляем состояние для модального окна
+  // Используем пустой массив по умолчанию, loading = true для первого запроса
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Используем INITIAL_CLIENTS как начальное состояние
-  const [clients, setClients] = useState(INITIAL_CLIENTS);
-  const [loading, setLoading] = useState(false); // Установим false, пока не настроен реальный fetch
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true); // Изменено на true
   const [error, setError] = useState(null);
+  const [editingClient, setEditingClient] = useState(null);
 
   // Функции для управления модальным окном
   const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingClient(null); // Важно: очищаем данные редактирования
+  };
+  const handleEditClick = (client) => {
+    setEditingClient(client); // Загружаем данные клиента в форму
+    setIsModalOpen(true);
+  };
+  const handleClientUpdated = (updatedClient) => {
+    setClients(
+      clients.map((client) =>
+        // Если ID совпадает, заменяем старый объект на новый
+        client.id === updatedClient.id ? updatedClient : client
+      )
+    );
+  };
 
-  // Функция для обновления списка после добавления нового клиента
+  // Функция для обновления списка после добавления нового клиента (Create)
   const handleNewClientAdded = (newClient) => {
-    // Добавляем нового клиента в начало списка
     setClients([newClient, ...clients]);
   };
 
-  /* * ВРЕМЕННО КОММЕНТИРУЕМ useEffect, 
-    * так как роут /admin-dashboard возвращает не список, а сообщение.
-    * Позже мы вернемся к реальной загрузке данных.
-    
-    useEffect(() => {
-        // ... (логика fetchClient остается пока неактивной)
-    }, []);
-    */
+  // --- ФУНКЦИЯ УДАЛЕНИЯ КЛИЕНТА (Delete) ---
+  const handleDelete = async (clientId) => {
+    if (
+      !window.confirm(
+        `Вы уверены, что хотите удалить клиента с ID ${clientId}?`
+      )
+    ) {
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setError("Ошибка аутентификации. Пожалуйста, войдите снова.");
+      return;
+    }
+
+    try {
+      await axios.delete(`${API_URL_BASE}/${clientId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      // Обновляем состояние, убирая удаленного клиента
+      setClients(clients.filter((client) => client.id !== clientId));
+    } catch (error) {
+      console.error("Ошибка удаления клиента:", error);
+      setError(error.response?.data?.message || "Ошибка удаления.");
+    }
+  };
+  // ----------------------------------------
+
+  // --- АКТИВИРУЕМ useEffect ДЛЯ ЗАГРУЗКИ ДАННЫХ (Read) ---
+  useEffect(() => {
+    const fetchClients = async () => {
+      setLoading(true);
+      setError(null);
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("Ошибка аутентификации. Не найден токен.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await axios.get(
+          API_URL_BASE, // GET /api/data/clients
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        setClients(response.data);
+      } catch (err) {
+        console.error("Ошибка загрузки клиентов:", err);
+        setError(
+          "Не удалось загрузить данные клиентов. Проверьте сервер и токен."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClients();
+  }, []);
+  // ----------------------------------------------------
 
   if (loading) {
     return (
       <div className="client-list-container">
-        <p className="status-message-list">Загрузка данных...</p>
+        <p className="status-message-list">Загрузка данных из SQL...</p>
       </div>
     );
   }
@@ -79,39 +127,42 @@ const ClientList = () => {
 
   return (
     <div className="client-list-container">
-      <h2>Панель Администратора (Список Клиентов)</h2>
-      <button className="btn-add" onClick={openModal}>
-        + Добавить Клиента
-      </button>
+      {/* ... (h2, button "+ Добавить Клиента") ... */}
 
       <table className="client-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>ФИО</th>
-            <th>Email</th>
-            <th>Роль</th>
-            <th>Дата регистрации</th>
-          </tr>
-        </thead>
+        {/* ... (thead) ... */}
         <tbody>
           {clients.map((client) => (
-            // Важно: Убедитесь, что здесь нет пробелов, которые могут быть восприняты как текст
             <tr key={client.id || client.email}>
-              <td>{client.id}</td>
-              <td>{client.name}</td>
-              <td>{client.email}</td>
-              <td>{client.role || "N/A"}</td>
-              <td>{client.created}</td>
+              {/* ... (ячейки с данными) ... */}
+              <td>
+                {/* --- КНОПКА "РЕДАКТИРОВАТЬ" --- */}
+                <button
+                  className="btn-edit"
+                  onClick={() => handleEditClick(client)}
+                >
+                  Редактировать
+                </button>
+                <button
+                  className="btn-delete"
+                  onClick={() => handleDelete(client.id)}
+                >
+                  Удалить
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
 
       <ClientModal
-        show={isModalOpen} // Передаем состояние видимости
-        handleClose={closeModal} // Передаем функцию закрытия
-        onClientAdded={handleNewClientAdded} // Передаем функцию обновления списка
+        show={isModalOpen}
+        handleClose={closeModal}
+        onClientAdded={handleNewClientAdded}
+        // Передаем данные редактируемого клиента (будет null при добавлении)
+        clientData={editingClient}
+        // Передаем функцию, которая обновит список на клиенте
+        onClientUpdated={handleClientUpdated}
       />
     </div>
   );
