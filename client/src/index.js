@@ -1,16 +1,17 @@
-// client/src/index.js (Исправленный)
+// src/index.js (или где вы рендерите корень)
 
 import React from "react";
 import ReactDOM from "react-dom/client";
-// import "./components/Login"; <-- ЭТУ СТРОКУ УДАЛЯЕМ
 import App from "./App";
-import reportWebVitals from "./reportWebVitals";
+// ... другие импорты ...
+import { AuthProvider } from "./contexts/AuthContext"; // <<< НОВЫЙ ИМПОРТ
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-        <App /> {" "}
+    {/* Оборачиваем App в провайдер контекста */}
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>
 );
-
-reportWebVitals();

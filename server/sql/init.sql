@@ -32,10 +32,39 @@ CREATE TABLE IF NOT EXISTS Shipping (
     Status TEXT DEFAULT 'Pending' CHECK(Status IN ('Pending', 'Shipped', 'In Transit', 'Delivered', 'Exception')),
     FOREIGN KEY (OrderID) REFERENCES Orders(OrderID)
 );
+
+CREATE TABLE IF NOT EXISTS Cancellations (
+    CancellationID INTEGER PRIMARY KEY AUTOINCREMENT,
+    OrderID INTEGER UNIQUE NOT NULL,    -- Отмена привязана к одному заказу (UNIQUE, чтобы не отменить заказ дважды)
+    ClientID INTEGER,                   -- Кто инициировал отмену (может быть сам клиент, если разрешено)
+    AdminID INTEGER,                    -- Кто обработал отмену (если отменил администратор)
+    CancellationDate TEXT NOT NULL,
+    Reason TEXT NOT NULL,               -- Причина отмены (например, "Недостаток товара", "Запрос клиента")
+    FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
+    FOREIGN KEY (ClientID) REFERENCES Clients(ClientID),
+    FOREIGN KEY (AdminID) REFERENCES Clients(ClientID)
+);
+
+-- 1. Таблица Products (Товары)
+CREATE TABLE IF NOT EXISTS Products (
+    ProductID INTEGER PRIMARY KEY AUTOINCREMENT,
+    Name TEXT NOT NULL,
+    Description TEXT,  -- <-- ВОТ ГДЕ ОПИСАНИЕ ТОВАРА
+    UnitPrice REAL NOT NULL 
+);
+
+-- 2. Таблица OrderDetails (Детали заказа, связывает заказы с товарами)
+CREATE TABLE IF NOT EXISTS OrderDetails (
+    OrderDetailID INTEGER PRIMARY KEY AUTOINCREMENT,
+    OrderID INTEGER NOT NULL,
+    ProductID INTEGER NOT NULL,
+    Quantity INTEGER NOT NULL,
+    PriceAtOrder REAL NOT NULL, -- Цена, по которой товар был продан
+    FOREIGN KEY (OrderID) REFERENCES Orders(OrderID) ON DELETE CASCADE,
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID) ON DELETE RESTRICT
+);
 -- ---------------------------------------
 
-
--- --- БЛОК АДМИНИСТРАТОРА (Исправлено) ---
 -- 1. Сначала удаляем старую запись, чтобы гарантировать, что новый хэш применится
 DELETE FROM Clients WHERE Email = 'admin@crm.com';
 
