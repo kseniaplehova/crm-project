@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS Orders (
     OrderDate TEXT NOT NULL,
     Status TEXT DEFAULT 'New',
     TotalAmount REAL NOT NULL,
+    Description TEXT, -- <-- ДОБАВЛЕНО! Это краткое описание, которое вводит клиент
     FOREIGN KEY (ClientID) REFERENCES Clients(ClientID)
 );
 
@@ -35,14 +36,17 @@ CREATE TABLE IF NOT EXISTS Shipping (
 
 CREATE TABLE IF NOT EXISTS Cancellations (
     CancellationID INTEGER PRIMARY KEY AUTOINCREMENT,
-    OrderID INTEGER UNIQUE NOT NULL,    -- Отмена привязана к одному заказу (UNIQUE, чтобы не отменить заказ дважды)
-    ClientID INTEGER,                   -- Кто инициировал отмену (может быть сам клиент, если разрешено)
-    AdminID INTEGER,                    -- Кто обработал отмену (если отменил администратор)
+    OrderID INTEGER NOT NULL,
+    ClientID INTEGER,
+    AdminID INTEGER, -- Может быть NULL, если инициирован клиентом
     CancellationDate TEXT NOT NULL,
-    Reason TEXT NOT NULL,               -- Причина отмены (например, "Недостаток товара", "Запрос клиента")
+    ProcessedDate TEXT,
+    -- ДОБАВИТЬ ЭТОТ СТОЛБЕЦ:
+    Status TEXT NOT NULL DEFAULT 'Pending',
+    --
     FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
-    FOREIGN KEY (ClientID) REFERENCES Clients(ClientID),
-    FOREIGN KEY (AdminID) REFERENCES Clients(ClientID)
+    FOREIGN KEY (ClientID) REFERENCES Users(UserID),
+    FOREIGN KEY (AdminID) REFERENCES Users(UserID)
 );
 
 -- 1. Таблица Products (Товары)

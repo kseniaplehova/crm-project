@@ -1,12 +1,13 @@
--- Запрос для получения списка всех отмен (GET /cancellations)
--- Использует LEFT JOIN для получения имен, которые могут быть NULL.
-SELECT 
-    c.CancellationID, c.OrderID, c.CancellationDate, c.Reason,
+SELECT
+    c.CancellationID,
+    c.OrderID,
+    c.CancellationDate,
     o.TotalAmount,
-    client.Name as ClientInitiatorName,
-    admin.Name as AdminProcessorName
+    client.Name AS ClientInitiatorName,
+    admin.Name AS AdminProcessorName,
+    c.Status
 FROM Cancellations c
-JOIN Orders o ON c.OrderID = o.OrderID -- Отмена всегда привязана к заказу
-LEFT JOIN Clients client ON c.ClientID = client.ClientID -- Может быть NULL
-LEFT JOIN Clients admin ON c.AdminID = admin.ClientID     -- Может быть NULL
+JOIN Orders o ON c.OrderID = o.OrderID
+LEFT JOIN Clients client ON c.ClientID = client.ClientID
+LEFT JOIN Clients admin ON c.AdminID = admin.ClientID
 ORDER BY c.CancellationDate DESC;

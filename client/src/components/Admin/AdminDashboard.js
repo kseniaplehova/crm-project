@@ -50,16 +50,6 @@ const AdminDashboard = () => {
           >
             ❌ Отмены
           </NavLink>
-
-          {/* >>> НОВЫЙ РАЗДЕЛ: ВОЗВРАТЫ (REFUNDS) <<< */}
-          <NavLink
-            to="/admin/refunds"
-            className={({ isActive }) =>
-              isActive ? "nav-link active" : "nav-link"
-            }
-          >
-            💰 Возвраты
-          </NavLink>
         </div>
       </nav>
       {/* ------------------- КОНЕЦ SIDEBAR ------------------- */}

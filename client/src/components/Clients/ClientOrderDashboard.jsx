@@ -52,6 +52,7 @@ const ClientOrderDashboard = () => {
   const handleRowClick = async (record) => {
     const orderId = record.id;
     console.log("Кликнули на заказ ID:", orderId);
+    setSelectedOrderDetails(null);
 
     try {
       const token = localStorage.getItem("token");
@@ -67,6 +68,7 @@ const ClientOrderDashboard = () => {
       setSelectedOrderDetails(detailsResponse.data);
     } catch (error) {
       console.error("Ошибка загрузки деталей заказа:", error);
+      setSelectedOrderDetails([]);
     }
   };
 
@@ -110,7 +112,7 @@ const ClientOrderDashboard = () => {
         try {
           await axios.patch(
             `${API_ENDPOINT_ORDERS}/${orderId}/cancel`,
-            {},
+            {}, // <--- ИЗМЕНЕНИЕ ЗДЕСЬ
             {
               headers: {
                 Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -286,43 +288,6 @@ const ClientOrderDashboard = () => {
           })}
         />
       </Card>
-
-      {/* Секция 3: Блок для отображения деталей заказа */}
-      {selectedOrderDetails && (
-        <Card title={`Детали Товаров Заказа`} style={{ marginTop: 30 }}>
-          <Table
-            dataSource={selectedOrderDetails}
-            pagination={false}
-            columns={[
-              { title: "Товар", dataIndex: "productName", key: "productName" },
-              {
-                title: "Описание",
-                dataIndex: "description",
-                key: "description",
-              },
-              {
-                title: "Кол-во",
-                dataIndex: "quantity",
-                key: "quantity",
-                width: 80,
-              },
-              {
-                title: "Цена за ед.",
-                dataIndex: "priceAtOrder",
-                key: "priceAtOrder",
-                render: (text) => `€ ${text}`,
-              },
-              {
-                title: "Сумма строки",
-                dataIndex: "lineTotal",
-                key: "lineTotal",
-                render: (text) => `€ ${text}`,
-              },
-            ]}
-            rowKey="id"
-          />
-        </Card>
-      )}
     </div>
   );
 };

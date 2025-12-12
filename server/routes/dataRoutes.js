@@ -8,10 +8,9 @@ const fs = require("fs");
 const path = require("path");
 
 const loadSql = (filename) => {
-  return fs.readFileSync(
-    path.join(__dirname, `../sql/queries/${filename}`),
-    "utf8"
-  );
+  return fs
+    .readFileSync(path.join(__dirname, `../sql/queries/${filename}`), "utf8")
+    .trim();
 };
 
 const GET_ALL_SHIPPING_QUERY = fs.readFileSync(
@@ -28,7 +27,6 @@ const GET_ALL_ORDERS_QUERY = loadSql("get_all_orders.sql"); // С JOIN
 const GET_ORDER_BY_ID_QUERY = loadSql("get_order_by_id.sql"); // С JOIN
 const GET_ALL_CANCELLATIONS_QUERY = loadSql("get_all_cancellations.sql"); // С LEFT JOIN
 const GET_CANCELLATION_BY_ID_QUERY = loadSql("get_cancellation_by_id.sql"); // С JOIN
-const GET_ORDER_DETAILS_QUERY = loadSql("get_order_details_by_id.sql");
 
 // Секрет для JWT. Используйте переменную окружения!
 const JWT_SECRET = process.env.JWT_SECRET || "your_strong_secret_key";
@@ -321,9 +319,8 @@ router.get(
   async (req, res) => {
     try {
       const isClient = req.user.role === "client";
-      const clientId = isClient ? req.user.id : null;
+      const clientId = isClient ? req.user.id : null; // ВАЖНО: Предполагаем, что GET_ALL_ORDERS_QUERY включает o.Description и JOIN Clients
 
-      // ВАЖНО: Предполагаем, что GET_ALL_ORDERS_QUERY - это SELECT...FROM... и не содержит WHERE/ORDER BY.
       let query = GET_ALL_ORDERS_QUERY;
       const params = [];
       let whereClause = "";
@@ -332,10 +329,8 @@ router.get(
         // Если клиент, фильтруем по его ID
         whereClause = ` WHERE o.ClientID = ?`;
         params.push(clientId);
-      }
+      } // Добавляем условие WHERE и ORDER BY
 
-      // Добавляем условие WHERE перед ORDER BY/LIMIT
-      // Если вам нужен ORDER BY, добавьте его здесь:
       query = `${query}${whereClause} ORDER BY o.OrderDate DESC`;
 
       const rows = await new Promise((resolve, reject) => {
@@ -353,6 +348,7 @@ router.get(
         date: order.OrderDate ? order.OrderDate.split(" ")[0] : "N/A",
         status: order.Status,
         totalAmount: parseFloat(order.TotalAmount).toFixed(2),
+        description: order.Description, // <-- ДОБАВЛЕНО
       }));
 
       return res.json(orders);
@@ -365,100 +361,141 @@ router.get(
   }
 );
 
-router.get(
-  "/orders/:id/details",
-  protect,
-  authorize("admin", "client"),
-  async (req, res) => {
-    const orderId = parseInt(req.params.id);
-    const userId = req.user.id;
-    const userRole = req.user.role;
+// PATCH /api/data/orders/:id/cancel (ДЛЯ КЛИЕНТА)
+// Клиент создает заявку на отмену
+router.patch("/orders/:id/cancel", protect, async (req, res) => {
+  const orderId = parseInt(req.params.id);
+  const userId = req.user.id; // ID клиента из токена
 
-    try {
-      // 1. Проверка владельца (для роли 'client')
-      if (userRole === "client") {
-        const ownerCheck = await new Promise((resolve, reject) => {
-          db.get(
-            `SELECT ClientID FROM Orders WHERE OrderID = ?`,
-            [orderId],
-            (err, row) => {
-              if (err) return reject(err);
-              resolve(row);
-            }
-          );
-        });
-
-        // Заказ не найден или не принадлежит клиенту
-        if (!ownerCheck) {
-          return res.status(404).json({ message: "Заказ не найден." });
-        }
-        if (ownerCheck.ClientID !== userId) {
-          return res
-            .status(403)
-            .json({ message: "Недостаточно прав для просмотра этого заказа." });
-        }
-      }
-
-      // 2. Получение деталей (OrderDetails, Product)
-      const rows = await new Promise((resolve, reject) => {
-        db.all(GET_ORDER_DETAILS_QUERY, [orderId], (err, rows) => {
+  try {
+    // 1. Проверка, что заказ принадлежит клиенту и может быть отменен
+    const orderRow = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT OrderID, Status 
+                    FROM Orders 
+                    WHERE OrderID = ? AND ClientID = ? AND Status NOT IN ('Completed', 'Cancelled')`,
+        [orderId, userId],
+        (err, row) => {
           if (err) return reject(err);
-          resolve(rows);
-        });
+          resolve(row);
+        }
+      );
+    });
+
+    if (!orderRow) {
+      return res.status(404).json({
+        message:
+          "Заказ не найден, вам не принадлежит или уже не может быть отменен.",
       });
-
-      if (rows.length === 0) {
-        return res.status(404).json({ message: "Детали заказа не найдены." });
-      }
-
-      // 3. Форматирование ответа
-      const details = rows.map((row) => ({
-        id: row.OrderDetailID,
-        productName: row.ProductName,
-        description: row.ProductDescription,
-        quantity: row.Quantity,
-        priceAtOrder: parseFloat(row.PriceAtOrder).toFixed(2),
-        lineTotal: (row.Quantity * parseFloat(row.PriceAtOrder)).toFixed(2),
-      }));
-
-      return res.json(details);
-    } catch (err) {
-      console.error(`Ошибка при получении деталей заказа ID ${orderId}:`, err);
-      return res
-        .status(500)
-        .json({ message: "Ошибка сервера при загрузке деталей заказа." });
     }
-  }
-);
 
+    // 2. Создаем запись в таблице Cancellations со статусом 'Pending'
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO Cancellations (OrderID, ClientID, CancellationDate, Status)
+                 VALUES (?, ?, DATETIME('now'), 'Pending')`, // Статус 'Pending'
+        [orderId, userId],
+        function (err) {
+          if (err) return reject(err);
+          resolve();
+        }
+      );
+    });
+
+    // 3. (Опционально) Обновляем статус заказа в Orders на 'Pending'
+    // Это хорошая практика, чтобы клиент сразу видел, что заявка в работе
+    db.run(
+      `UPDATE Orders SET Status = 'Pending' WHERE OrderID = ?`,
+      [orderId],
+      (err) => {
+        if (err)
+          console.error("Ошибка обновления статуса заказа на Pending:", err);
+      }
+    );
+
+    return res.status(201).json({
+      message: "Заявка на отмену принята. Ожидайте обработки администратором.",
+      status: "Pending",
+    });
+  } catch (err) {
+    console.error("Ошибка SQLite при создании заявки на отмену:", err);
+    if (err.message.includes("UNIQUE constraint failed")) {
+      return res.status(409).json({
+        message: "По этому заказу уже есть активная заявка на отмену.",
+      });
+    }
+    return res
+      .status(500)
+      .json({ message: "Ошибка сервера при обработке заявки." });
+  }
+});
+
+// GET /api/data/orders/:id/details (ДЛЯ КЛИЕНТА)
+router.get("/orders/:id/details", protect, async (req, res) => {
+  const orderId = parseInt(req.params.id);
+  const userId = req.user.id; // ID клиента
+
+  try {
+    const row = await new Promise((resolve, reject) => {
+      // Запрашиваем все данные из таблицы Orders, проверяя, что заказ принадлежит клиенту
+      db.get(
+        `SELECT * FROM Orders WHERE OrderID = ? AND ClientID = ?`,
+        [orderId, userId],
+        (err, row) => {
+          if (err) return reject(err);
+          resolve(row);
+        }
+      );
+    });
+
+    if (!row) {
+      return res
+        .status(404)
+        .json({ message: "Заказ не найден или вам не принадлежит." });
+    }
+
+    // Возвращаем данные, которые ожидает фронтенд
+    return res.json({
+      id: row.OrderID,
+      description: row.Description,
+      totalAmount: parseFloat(row.TotalAmount).toFixed(2),
+      status: row.Status,
+      // ... другие поля из Orders
+    });
+  } catch (err) {
+    console.error("Ошибка SQLite при получении деталей заказа:", err);
+    return res
+      .status(500)
+      .json({ message: "Ошибка сервера при загрузке деталей." });
+  }
+});
+
+// POST /orders: Создание нового заказа
 router.post(
   "/orders",
   protect,
   authorize("admin", "client"),
   async (req, res) => {
-    // Определяем, кто создает заказ:
-    // - Если это клиент (из токена), используем его ID (req.user.id).
-    // - Если это админ (из токена), используем ClientID, переданный в теле запроса (req.body.clientId).
     const actualClientId =
-      req.user.role === "client" ? req.user.id : req.body.clientId;
+      req.user.role === "client" ? req.user.id : req.body.clientId; // ОБНОВЛЕНО: Получаем description
 
-    // TotalAmount и Status получаем из тела запроса
-    const { totalAmount, status = "New" } = req.body;
+    const { totalAmount, description, status = "New" } = req.body; // Проверка обязательных полей
 
-    // Проверка обязательных полей
-    if (!actualClientId || !totalAmount) {
-      // Ошибка 400: Недостаточно данных для создания заказа
+    if (!actualClientId || !totalAmount || !description) {
+      // <-- ОБНОВЛЕНО: Проверка description
       return res
         .status(400)
-        .json({ message: "Требуются ClientID (автоматически) и TotalAmount." });
+        .json({ message: "Требуются ClientID, TotalAmount и Description." });
     }
 
     try {
       const runQuery = new Promise((resolve, reject) => {
         db.run(
-          `INSERT INTO Orders (ClientID, OrderDate, Status, TotalAmount)
-                       VALUES (?, DATETIME('now'), ?, ?)`,
-          [actualClientId, status, totalAmount],
+          // ОБНОВЛЕНО: Добавляем Description в INSERT
+          `INSERT INTO Orders (ClientID, OrderDate, Status, TotalAmount, Description)
+          VALUES (?, DATETIME('now'), ?, ?, ?)`,
+          // ОБНОВЛЕНО: Добавляем description в параметры
+          [actualClientId, status, totalAmount, description],
           function (err) {
             if (err) return reject(err);
             resolve(this.lastID);
@@ -466,9 +503,8 @@ router.post(
         );
       });
 
-      const orderId = await runQuery;
+      const orderId = await runQuery; // Получение созданного заказа (используем GET_ORDER_BY_ID_QUERY)
 
-      // Получение созданного заказа с именем клиента (используем GET_ORDER_BY_ID_QUERY)
       const newOrder = await new Promise((resolve, reject) => {
         db.get(GET_ORDER_BY_ID_QUERY, [orderId], (err, row) => {
           if (err) return reject(err);
@@ -483,6 +519,7 @@ router.post(
         date: newOrder.OrderDate.split(" ")[0],
         status: newOrder.Status,
         totalAmount: parseFloat(newOrder.TotalAmount).toFixed(2),
+        description: newOrder.Description, // <-- ДОБАВЛЕНО
       };
 
       return res.status(201).json(formattedOrder);
@@ -494,116 +531,6 @@ router.post(
     }
   }
 );
-
-router.put("/orders/:id", protect, authorize("admin"), async (req, res) => {
-  const orderId = parseInt(req.params.id);
-  const { status, totalAmount } = req.body;
-
-  // Проверка, что хотя бы одно поле для обновления предоставлено
-  if (!status && !totalAmount) {
-    // Ошибка 400: Нет данных для обновления
-    return res
-      .status(400)
-      .json({ message: "Необходимо указать статус или сумму для обновления." });
-  }
-
-  try {
-    const updates = [];
-    const params = [];
-
-    if (status) {
-      updates.push("Status = ?");
-      params.push(status);
-    }
-    if (totalAmount !== undefined && totalAmount !== null) {
-      // Учитываем, что TotalAmount может быть 0
-      updates.push("TotalAmount = ?");
-      params.push(totalAmount);
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({ message: "Нет данных для обновления." });
-    }
-
-    params.push(orderId); // Последний параметр - это OrderID для WHERE
-
-    const runQuery = new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE Orders
-                    SET ${updates.join(", ")}
-                    WHERE OrderID = ?`,
-        params,
-        function (err) {
-          if (err) return reject(err);
-          resolve(this.changes);
-        }
-      );
-    });
-
-    const changes = await runQuery;
-
-    if (changes === 0) {
-      return res.status(404).json({ message: "Заказ не найден." });
-    }
-
-    // Получение обновленного заказа
-    const updatedOrder = await new Promise((resolve, reject) => {
-      db.get(GET_ORDER_BY_ID_QUERY, [orderId], (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      });
-    });
-
-    const formattedOrder = {
-      id: updatedOrder.OrderID,
-      clientId: updatedOrder.ClientID,
-      clientName: updatedOrder.ClientName,
-      date: updatedOrder.OrderDate.split(" ")[0],
-      status: updatedOrder.Status,
-      totalAmount: parseFloat(updatedOrder.TotalAmount).toFixed(2),
-    };
-
-    return res.json(formattedOrder);
-  } catch (err) {
-    console.error("Ошибка SQLite при обновлении заказа:", err);
-    return res
-      .status(500)
-      .json({ message: "Ошибка сервера при обновлении заказа." });
-  }
-});
-
-// DELETE /orders/:id: Удаление заказа
-router.delete("/orders/:id", protect, authorize("admin"), async (req, res) => {
-  const orderId = parseInt(req.params.id);
-
-  try {
-    const runQuery = new Promise((resolve, reject) => {
-      db.run(
-        `DELETE FROM Orders 
-                     WHERE OrderID = ?`,
-        [orderId],
-        function (err) {
-          if (err) return reject(err);
-          resolve(this.changes);
-        }
-      );
-    });
-
-    const changes = await runQuery;
-
-    if (changes === 0) {
-      return res.status(404).json({ message: "Заказ не найден." });
-    }
-
-    console.log(`[SQLite] Успешно удален заказ ID: ${orderId}`);
-    return res.status(204).send();
-  } catch (err) {
-    console.error("Ошибка SQLite при удалении заказа:", err);
-    return res
-      .status(500)
-      .json({ message: "Ошибка сервера при удалении заказа." });
-  }
-});
 
 // =================================================================
 // 3. РОУТЫ ДЛЯ ДОСТАВКИ (CRUD)
@@ -888,16 +815,17 @@ router.get("/cancellations", protect, authorize("admin"), async (req, res) => {
       });
     });
 
+    // ... в роуте GET /cancellations
     const cancellationList = rows.map((item) => ({
       id: item.CancellationID,
       orderId: item.OrderID,
-      reason: item.Reason,
       cancellationDate: item.CancellationDate
         ? item.CancellationDate.split(" ")[0]
         : "N/A",
       totalAmount: parseFloat(item.TotalAmount).toFixed(2),
       initiator:
         item.ClientInitiatorName || item.AdminProcessorName || "Система",
+      status: item.Status, // <-- ДОБАВИТЬ СТАТУС ДЛЯ ОТОБРАЖЕНИЯ
     }));
 
     return res.json(cancellationList);
@@ -912,20 +840,18 @@ router.get("/cancellations", protect, authorize("admin"), async (req, res) => {
 // POST /cancellations: Создание новой записи об отмене
 router.post("/cancellations", protect, authorize("admin"), async (req, res) => {
   const adminId = req.user.id;
-  const { orderId, reason } = req.body;
+  const { orderId } = req.body;
 
-  if (!orderId || !reason) {
-    return res
-      .status(400)
-      .json({ message: "Требуются OrderID и Reason (причина отмены)." });
+  if (!orderId) {
+    return res.status(400).json({ message: "Требуются OrderID" });
   }
 
   try {
     const runQuery = new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO Cancellations (OrderID, AdminID, CancellationDate, Reason)
-                     VALUES (?, ?, DATETIME('now'), ?)`,
-        [orderId, adminId, reason],
+        `INSERT INTO Cancellations (OrderID, AdminID, CancellationDate,Status) // <-- ДОБАВИТЬ Status
+        VALUES (?, ?, DATETIME('now'), 'Approved')`,
+        [orderId, adminId],
         function (err) {
           if (err) return reject(err);
           resolve(this.lastID);
@@ -961,7 +887,6 @@ router.post("/cancellations", protect, authorize("admin"), async (req, res) => {
     const formattedCancellation = {
       id: newCancellation.CancellationID,
       orderId: newCancellation.OrderID,
-      reason: newCancellation.Reason,
       cancellationDate: newCancellation.CancellationDate.split(" ")[0],
       totalAmount: parseFloat(newCancellation.TotalAmount).toFixed(2),
       initiator: newCancellation.AdminProcessorName,
@@ -1022,40 +947,83 @@ router.delete(
     }
   }
 );
+// PATCH /cancellations/:id/status: Обновление статуса заявки на отмену (ТОЛЬКО для Admin)
+router.patch(
+  "/cancellations/:id/status",
+  protect,
+  authorize("admin"),
+  async (req, res) => {
+    const cancellationId = parseInt(req.params.id);
+    const { newStatus } = req.body; // Ожидаем "Approved" или "Rejected"
+    const adminId = req.user.id; // ID текущего администратора
 
-// --- РОУТЫ ДЛЯ ВОЗВРАТОВ (REFUNDS) ---
-// Получить все возвраты (Только для админов)
-router.get("/refunds", protect, authorize("admin"), async (req, res) => {
-  try {
-    // Здесь должна быть логика получения данных из таблицы 'Refunds'
-    // Пока используем заглушку.
-    const refundsData = [
-      {
-        id: 1,
-        orderId: 101,
-        cancellationId: 5,
-        date: "2025-11-20",
-        amount: 150.0,
-        status: "Completed",
-        initiatedBy: "Admin",
-      },
-      {
-        id: 2,
-        orderId: 103,
-        cancellationId: 7,
-        date: "2025-11-21",
-        amount: 50.5,
-        status: "Pending",
-        initiatedBy: "Client",
-      },
-    ];
-    res.json(refundsData);
-  } catch (error) {
-    console.error("Ошибка при получении возвратов:", error);
-    res
-      .status(500)
-      .json({ message: "Ошибка сервера при получении возвратов." });
+    if (!newStatus || !["Approved", "Rejected"].includes(newStatus)) {
+      return res.status(400).json({
+        message: "Неверный статус. Допустимые значения: Approved, Rejected.",
+      });
+    }
+
+    try {
+      // 1. Обновляем статус заявки в таблице Cancellations
+      const result = await new Promise((resolve, reject) => {
+        db.run(
+          // Обновляем только если текущий статус — 'Pending' (защита от повторной обработки)
+          `UPDATE Cancellations SET 
+                    Status = ?, 
+                    AdminID = ?, 
+                    ProcessedDate = DATETIME('now') 
+                WHERE CancellationID = ? AND Status = 'Pending'`,
+          [newStatus, adminId, cancellationId],
+          function (err) {
+            if (err) return reject(err);
+            resolve(this);
+          }
+        );
+      });
+
+      if (result.changes === 0) {
+        return res.status(404).json({
+          message:
+            "Заявка не найдена, уже обработана или не имеет статуса 'Pending'.",
+        });
+      }
+
+      // 2. Если заявка одобрена, нужно обновить статус связанного заказа
+      if (newStatus === "Approved") {
+        // Сначала получаем ID заказа из заявки
+        const orderRow = await new Promise((resolve, reject) => {
+          db.get(
+            `SELECT OrderID FROM Cancellations WHERE CancellationID = ?`,
+            [cancellationId],
+            (err, row) => {
+              if (err) return reject(err);
+              resolve(row);
+            }
+          );
+        });
+
+        if (orderRow && orderRow.OrderID) {
+          // Обновляем статус заказа, чтобы он стал 'Cancelled'
+          await new Promise((resolve, reject) => {
+            db.run(
+              `UPDATE Orders SET Status = 'Cancelled' WHERE OrderID = ? AND Status != 'Cancelled'`,
+              [orderRow.OrderID],
+              (err) => {
+                if (err) return reject(err);
+                resolve();
+              }
+            );
+          });
+        }
+      }
+
+      res.json({
+        message: `Статус заявки #${cancellationId} обновлен на ${newStatus}`,
+      });
+    } catch (err) {
+      console.error("Ошибка SQLite при обработке заявки на отмену:", err);
+      res.status(500).json({ message: "Ошибка сервера при обработке заявки." });
+    }
   }
-});
-
+);
 module.exports = router;

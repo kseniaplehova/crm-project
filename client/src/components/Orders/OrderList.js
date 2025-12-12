@@ -186,14 +186,14 @@ const OrderList = () => {
         <ShoppingCartOutlined /> Управление Заказами
       </Title>
 
-      <Button
+      {/* <Button
         type="primary"
         icon={<PlusOutlined />}
         onClick={handleCreate}
         style={{ marginBottom: 16, position: "relative", zIndex: 100 }}
       >
         Добавить заказ
-      </Button>
+      </Button> */}
 
       {error && (
         <Alert

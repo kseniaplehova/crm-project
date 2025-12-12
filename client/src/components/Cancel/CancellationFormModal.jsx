@@ -1,9 +1,9 @@
-// src/components/CancellationFormModal.jsx
-
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form, Alert } from "react-bootstrap";
 import axios from "axios";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../../contexts/AuthContext";
+
+const API_ENDPOINT = "/api/data/cancellations";
 
 const CancellationFormModal = ({
   show,
@@ -11,22 +11,19 @@ const CancellationFormModal = ({
   onSave,
   orderIdToCancel,
 }) => {
-  const initialState = {
-    orderId: orderIdToCancel || "", // ID Заказа, который отменяем
-    reason: "", // Причина отмены
-  };
+  const getInitialState = (id) => ({
+    orderId: id || "",
+    reason: "",
+  });
 
-  const [formData, setFormData] = useState(initialState);
+  const [formData, setFormData] = useState(getInitialState(orderIdToCancel));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { token } = useAuth();
 
-  // Обновляем orderId при изменении prop
   useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      orderId: orderIdToCancel || "",
-    }));
+    setFormData(getInitialState(orderIdToCancel));
+    setError(null);
   }, [orderIdToCancel]);
 
   const handleChange = (e) => {
@@ -51,23 +48,18 @@ const CancellationFormModal = ({
 
     try {
       const payload = {
-        orderId: parseInt(formData.orderId), // Убедимся, что ID — число
+        orderId: parseInt(formData.orderId),
         reason: formData.reason,
       };
 
-      // Отправляем запрос POST на создание отмены
-      const response = await axios.post(
-        "http://localhost:5000/api/data/cancellations",
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await axios.post(API_ENDPOINT, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      // Если успешно, вызываем колбэк для обновления списка и закрываем модальное окно
       onSave(response.data);
-      handleClose();
+      handleModalClose();
     } catch (err) {
       console.error("Ошибка создания отмены:", err.response || err);
-      // Обрабатываем 409 Conflict (уже отменен)
       const msg =
         err.response?.status === 409
           ? "Этот заказ уже был отменен ранее."
@@ -81,7 +73,7 @@ const CancellationFormModal = ({
 
   const handleModalClose = () => {
     setError(null);
-    setFormData(initialState);
+    setFormData(getInitialState(orderIdToCancel));
     handleClose();
   };
 
@@ -92,15 +84,17 @@ const CancellationFormModal = ({
       backdrop="static"
       keyboard={false}
     >
+           {" "}
       <Modal.Header closeButton>
-        <Modal.Title>Отмена заказа</Modal.Title>
+                <Modal.Title>Создать запись об отмене (Админ)</Modal.Title>     {" "}
       </Modal.Header>
+           {" "}
       <Modal.Body>
-        {error && <Alert variant="danger">{error}</Alert>}
+                {error && <Alert variant="danger">{error}</Alert>}       {" "}
         <Form onSubmit={handleSubmit}>
-          {/* Order ID */}
+                   {" "}
           <Form.Group className="mb-3">
-            <Form.Label>ID Заказа</Form.Label>
+                        <Form.Label>ID Заказа</Form.Label>           {" "}
             <Form.Control
               type="number"
               name="orderId"
@@ -110,38 +104,49 @@ const CancellationFormModal = ({
               required
               min="1"
             />
+                       {" "}
             <Form.Text className="text-muted">
-              Отмена заказа автоматически меняет его статус на "Canceled".
+                            Создание записи об отмене автоматически меняет
+              статус заказа на "Cancelled".            {" "}
             </Form.Text>
+                     {" "}
           </Form.Group>
-
-          {/* Reason */}
+                   {" "}
           <Form.Group className="mb-3">
-            <Form.Label>Причина отмены</Form.Label>
+                        <Form.Label>Причина отмены</Form.Label>           {" "}
             <Form.Control
               as="textarea"
               name="reason"
               value={formData.reason}
               onChange={handleChange}
-              placeholder="Например: Запрос клиента, нет в наличии и т.д."
+              placeholder="Например: Запрос клиента, нет в наличии, ошибка ввода."
               required
               rows={3}
             />
+                     {" "}
           </Form.Group>
+                 {" "}
         </Form>
+             {" "}
       </Modal.Body>
+           {" "}
       <Modal.Footer>
+               {" "}
         <Button
           variant="secondary"
           onClick={handleModalClose}
           disabled={loading}
         >
-          Отмена
+                    Отмена        {" "}
         </Button>
+               {" "}
         <Button variant="danger" onClick={handleSubmit} disabled={loading}>
-          {loading ? "Отмена..." : "Подтвердить отмену"}
+                    {loading ? "Создание..." : "Создать запись об отмене"}     
+           {" "}
         </Button>
+             {" "}
       </Modal.Footer>
+         {" "}
     </Modal>
   );
 };
