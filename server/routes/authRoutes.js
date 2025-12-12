@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-// Импортируем готовый экземпляр БД
 const { db } = require("../config/db");
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_default_secret_key";
@@ -12,14 +11,13 @@ router.post("/login", async (req, res) => {
   console.log(`[AUTH] Попытка входа для email: ${email}`);
 
   try {
-    // db.get: получает одну строку. ? - плейсхолдеры SQLite
     const user = await new Promise((resolve, reject) => {
       db.get(
         "SELECT ClientID, PasswordHash, Role, Name FROM Clients WHERE Email = ?",
         [email],
         (err, row) => {
           if (err) return reject(err);
-          resolve(row); // row будет undefined, если не найдено
+          resolve(row);
         }
       );
     });
@@ -33,7 +31,6 @@ router.post("/login", async (req, res) => {
         .json({ message: "Неправильный логин или пароль." });
     }
 
-    // SQLite сохраняет роль в нижнем регистре. Сравниваем хэши.
     const isMatch = await bcrypt.compare(password, user.PasswordHash);
 
     if (!isMatch) {

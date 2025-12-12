@@ -1,5 +1,4 @@
--- Запрос для получения одной записи доставки (используется в POST и PUT /shipping)
--- Использует LEFT JOIN для предотвращения ошибки 500, если связанные данные не найдены.
+
 SELECT 
     s.ShippingID, s.OrderID, s.TrackingNumber, s.Carrier, 
     s.ShippingDate, s.DeliveryDate, s.Status, 

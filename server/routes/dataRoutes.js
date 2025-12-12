@@ -947,15 +947,14 @@ router.delete(
     }
   }
 );
-// PATCH /cancellations/:id/status: Обновление статуса заявки на отмену (ТОЛЬКО для Admin)
 router.patch(
   "/cancellations/:id/status",
   protect,
   authorize("admin"),
   async (req, res) => {
     const cancellationId = parseInt(req.params.id);
-    const { newStatus } = req.body; // Ожидаем "Approved" или "Rejected"
-    const adminId = req.user.id; // ID текущего администратора
+    const { newStatus } = req.body;
+    const adminId = req.user.id;
 
     if (!newStatus || !["Approved", "Rejected"].includes(newStatus)) {
       return res.status(400).json({
@@ -964,10 +963,8 @@ router.patch(
     }
 
     try {
-      // 1. Обновляем статус заявки в таблице Cancellations
       const result = await new Promise((resolve, reject) => {
         db.run(
-          // Обновляем только если текущий статус — 'Pending' (защита от повторной обработки)
           `UPDATE Cancellations SET 
                     Status = ?, 
                     AdminID = ?, 
@@ -988,9 +985,7 @@ router.patch(
         });
       }
 
-      // 2. Если заявка одобрена, нужно обновить статус связанного заказа
       if (newStatus === "Approved") {
-        // Сначала получаем ID заказа из заявки
         const orderRow = await new Promise((resolve, reject) => {
           db.get(
             `SELECT OrderID FROM Cancellations WHERE CancellationID = ?`,
@@ -1003,7 +998,6 @@ router.patch(
         });
 
         if (orderRow && orderRow.OrderID) {
-          // Обновляем статус заказа, чтобы он стал 'Cancelled'
           await new Promise((resolve, reject) => {
             db.run(
               `UPDATE Orders SET Status = 'Cancelled' WHERE OrderID = ? AND Status != 'Cancelled'`,

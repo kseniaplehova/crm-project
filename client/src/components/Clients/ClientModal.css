@@ -1,7 +1,4 @@
-/* client/src/components/ClientModal.css */
-
-/* Затемнение заднего плана */
-.modal-overlay {
+.modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
@@ -14,7 +11,6 @@
   z-index: 1000;
 }
 
-/* Контейнер самого модального окна */
 .modal-content {
   background: white;
   padding: 30px;
@@ -25,7 +21,6 @@
   position: relative;
 }
 
-/* Кнопка закрытия */
 .modal-close-button {
   position: absolute;
   top: 10px;
@@ -37,19 +32,19 @@
   color: #666;
 }
 
-/* Стили для элементов формы */
-.form-group-modal {
+.form-group {
   margin-bottom: 15px;
 }
 
-.form-group-modal label {
+.form-group label {
   display: block;
   margin-bottom: 5px;
   font-weight: 500;
   color: #333;
 }
 
-.form-group-modal input {
+.form-group input,
+.form-group select {
   width: 100%;
   padding: 10px;
   border: 1px solid #ccc;
@@ -57,7 +52,6 @@
   box-sizing: border-box;
 }
 
-/* Кнопка сохранения */
 .btn-save {
   background-color: #28a745;
   color: white;
@@ -67,19 +61,55 @@
   cursor: pointer;
   font-weight: 600;
   transition: background-color 0.2s;
-  width: 100%;
-  margin-top: 10px;
 }
 
-.btn-save:hover {
+.btn-save:hover:not(:disabled) {
   background-color: #1e7e34;
 }
 
-.modal-message {
+.btn-save:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn-cancel {
+  background-color: #6c757d;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.btn-cancel:hover {
+  background-color: #5a6268;
+}
+
+.modal-success {
   margin-top: 15px;
   padding: 10px;
   border-radius: 4px;
   background-color: #d4edda;
   color: #155724;
   text-align: center;
+  border: 1px solid #c3e6cb;
+}
+
+.modal-error {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #f8d7da;
+  color: #721c24;
+  text-align: center;
+  border: 1px solid #f5c6cb;
 }

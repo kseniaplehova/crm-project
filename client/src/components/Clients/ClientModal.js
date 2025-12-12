@@ -1,12 +1,9 @@
-// client/src/components/ClientModal.js (Полностью обновленный)
-
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./ClientModal.css";
 
 const API_URL = "http://localhost:5000/api/data/clients";
 
-// Принимаем clientData для режима редактирования и onClientUpdated
 const ClientModal = ({
   show,
   handleClose,
@@ -14,20 +11,18 @@ const ClientModal = ({
   onClientUpdated,
   clientData,
 }) => {
-  const isEditing = !!clientData; // True, если передан clientData
+  const isEditing = !!clientData;
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState("client"); // Для редактирования роли
+  const [role, setRole] = useState("client");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // --- useEffect для заполнения формы при редактировании ---
   useEffect(() => {
     if (isEditing && clientData) {
-      // Если режим редактирования, заполняем поля текущими данными клиента
       setName(clientData.name || "");
       setEmail(clientData.email || "");
       setPhone(clientData.phone || "");
@@ -35,7 +30,6 @@ const ClientModal = ({
       setError(null);
       setSuccessMessage(null);
     } else {
-      // Режим добавления: очищаем поля при открытии
       setName("");
       setEmail("");
       setPhone("");
@@ -43,9 +37,8 @@ const ClientModal = ({
       setError(null);
       setSuccessMessage(null);
     }
-  }, [isEditing, clientData, show]); // Запускается при смене режима или открытии
+  }, [isEditing, clientData, show]);
 
-  // --- ФУНКЦИЯ ОТПРАВКИ ФОРМЫ (POST или PUT) ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -64,7 +57,6 @@ const ClientModal = ({
     let method = "post";
 
     if (isEditing) {
-      // Режим редактирования: меняем URL и метод
       url = `${API_URL}/${clientData.id}`;
       method = "put";
     }
@@ -77,16 +69,12 @@ const ClientModal = ({
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Обработка успеха
       if (isEditing) {
-        // Вызываем функцию обновления списка в родительском компоненте
         onClientUpdated(response.data);
         setSuccessMessage("Клиент успешно обновлен!");
       } else {
-        // Вызываем функцию добавления в родительском компоненте
         onClientAdded(response.data);
         setSuccessMessage("Клиент успешно добавлен!");
-        // Очистка формы после добавления
         setName("");
         setEmail("");
         setPhone("");
@@ -106,7 +94,6 @@ const ClientModal = ({
     }
   };
 
-  // Если модальное окно скрыто, не рендерим его
   if (!show) {
     return null;
   }
@@ -150,7 +137,6 @@ const ClientModal = ({
               onChange={(e) => setPhone(e.target.value)}
             />
           </div>
-          {/* Поле роли доступно только при редактировании, например */}
           {isEditing && (
             <div className="form-group">
               <label>Роль:</label>

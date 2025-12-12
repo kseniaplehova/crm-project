@@ -19,29 +19,26 @@ import {
 } from "@ant-design/icons";
 import axios from "axios";
 import OrderFormModal from "./OrderFormModal";
-
+import "../Clients/ClientModal";
 const { Title } = Typography;
 
 const OrderList = () => {
   const [orders, setOrders] = useState([]);
-  const [clients, setClients] = useState([]); // Добавляем состояние для клиентов
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentOrder, setCurrentOrder] = useState(null);
 
-  // Функция для загрузки данных (заказов и клиентов)
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Загрузка заказов
       const ordersResponse = await axios.get("/api/data/orders", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       setOrders(ordersResponse.data);
 
-      // Загрузка клиентов (нужно для Select в модальном окне)
       const clientsResponse = await axios.get("/api/data/clients", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
@@ -75,7 +72,7 @@ const OrderList = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       message.success("Заказ успешно удален.");
-      fetchData(); // Перезагружаем список
+      fetchData();
     } catch (err) {
       console.error("Ошибка удаления заказа:", err);
       message.error("Ошибка при удалении заказа.");
@@ -87,7 +84,7 @@ const OrderList = () => {
       `Заказ #${newOrder.id} успешно ${currentOrder ? "обновлен" : "создан"}.`
     );
     setIsModalVisible(false);
-    fetchData(); // Перезагружаем список
+    fetchData();
   };
 
   const getStatusTag = (status) => {
@@ -186,15 +183,6 @@ const OrderList = () => {
         <ShoppingCartOutlined /> Управление Заказами
       </Title>
 
-      {/* <Button
-        type="primary"
-        icon={<PlusOutlined />}
-        onClick={handleCreate}
-        style={{ marginBottom: 16, position: "relative", zIndex: 100 }}
-      >
-        Добавить заказ
-      </Button> */}
-
       {error && (
         <Alert
           message="Ошибка загрузки"
@@ -219,7 +207,7 @@ const OrderList = () => {
         onCancel={() => setIsModalVisible(false)}
         onSuccess={handleSuccess}
         currentOrder={currentOrder}
-        clients={clients} // Передаем список клиентов
+        clients={clients}
       />
     </Card>
   );

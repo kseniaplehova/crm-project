@@ -1,5 +1,5 @@
 import { useAuth } from "../../contexts/AuthContext";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Table,
   Tag,
@@ -16,6 +16,7 @@ import {
   CloseCircleOutlined,
   RedoOutlined,
   PlusOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import axios from "axios";
 import CancellationFormModal from "./CancellationFormModal";
@@ -32,7 +33,7 @@ const AdminCancellationDashboard = () => {
   const [error, setError] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const fetchCancellations = async () => {
+  const fetchCancellations = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -48,13 +49,13 @@ const AdminCancellationDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     if (token) {
       fetchCancellations();
     }
-  }, [token]);
+  }, [token, fetchCancellations]);
 
   const getStatusTag = (status) => {
     switch (status) {
@@ -114,25 +115,47 @@ const AdminCancellationDashboard = () => {
     message.success(
       `Запись об отмене заказа №${newCancellation.orderId} успешно создана.`
     );
+    setIsModalVisible(false);
     fetchCancellations();
   };
 
   const columns = [
-    { title: "ID Заявки", dataIndex: "id", key: "id", width: 100 },
-    { title: "ID Заказа", dataIndex: "orderId", key: "orderId", width: 100 },
+    {
+      title: "ID Заявки",
+      dataIndex: "id",
+      key: "id",
+      width: 100,
+      sorter: (a, b) => a.id - b.id,
+    },
+    {
+      title: "ID Заказа",
+      dataIndex: "orderId",
+      key: "orderId",
+      width: 100,
+      sorter: (a, b) => a.orderId - b.orderId,
+    },
     {
       title: "Сумма",
       dataIndex: "totalAmount",
       key: "totalAmount",
       width: 120,
-      render: (amount) => `${amount} руб.`,
+      render: (amount) => `${amount} €.`,
+      align: "right",
+      sorter: (a, b) => parseFloat(a.totalAmount) - parseFloat(b.totalAmount),
     },
-    { title: "Инициатор", dataIndex: "initiator", key: "initiator" },
+    {
+      title: "Инициатор",
+      dataIndex: "initiator",
+      key: "initiator",
+      sorter: (a, b) => a.initiator.localeCompare(b.initiator),
+    },
     {
       title: "Дата заявки",
       dataIndex: "cancellationDate",
       key: "cancellationDate",
-      render: (text) => text || "N/A",
+      render: (text) => (text ? new Date(text).toLocaleDateString() : "N/A"),
+      sorter: (a, b) =>
+        new Date(a.cancellationDate) - new Date(b.cancellationDate),
     },
     { title: "Причина", dataIndex: "reason", key: "reason", ellipsis: true },
     {
@@ -141,6 +164,7 @@ const AdminCancellationDashboard = () => {
       key: "status",
       render: getStatusTag,
       width: 150,
+      sorter: (a, b) => a.status.localeCompare(b.status),
     },
     {
       title: "Действия",
@@ -174,57 +198,63 @@ const AdminCancellationDashboard = () => {
   ];
 
   return (
-    <div style={{ padding: "20px" }}>
-      <Title level={2} style={{ textAlign: "center" }}>
-        Панель Управления Заявками на Отмену
+    <Card>
+      <Title level={2} style={{ marginBottom: 16 }}>
+        <StopOutlined /> Панель Управления Заявками на Отмену
       </Title>
-      <Card
-        title="Список Заявок"
-        extra={
-          <Space>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setIsModalVisible(true)}
-            >
-              Создать Отмену (Админ)
-            </Button>
-            <Button
-              onClick={fetchCancellations}
-              icon={<RedoOutlined />}
-              loading={loading}
-              type="default"
-            >
-              Обновить
-            </Button>
-          </Space>
-        }
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginBottom: 16,
+        }}
       >
-        {error && (
-          <Alert
-            message="Ошибка загрузки данных"
-            description={error}
-            type="error"
-            showIcon
-            style={{ marginBottom: 15 }}
-          />
-        )}
-        <Table
-          columns={columns}
-          dataSource={cancellations}
-          rowKey="id"
-          loading={loading}
-          pagination={{ pageSize: 10 }}
-          locale={{ emptyText: "Нет активных заявок на отмену." }}
+        <Space>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setIsModalVisible(true)}
+          >
+            Создать Отмену (Админ)
+          </Button>
+          <Button
+            onClick={fetchCancellations}
+            icon={<RedoOutlined />}
+            loading={loading}
+            type="default"
+          >
+            Обновить
+          </Button>
+        </Space>
+      </div>
+
+      {error && (
+        <Alert
+          message="Ошибка загрузки данных"
+          description={error}
+          type="error"
+          showIcon
+          style={{ marginBottom: 15 }}
         />
-      </Card>
+      )}
+      <Table
+        columns={columns}
+        dataSource={cancellations}
+        rowKey="id"
+        loading={loading}
+        pagination={{ pageSize: 10 }}
+        scroll={{ x: "max-content" }}
+        locale={{ emptyText: "Нет активных заявок на отмену." }}
+      />
+
       <CancellationFormModal
         show={isModalVisible}
         handleClose={() => setIsModalVisible(false)}
         onSave={handleModalSave}
         orderIdToCancel={null}
       />
-    </div>
+    </Card>
   );
 };
 

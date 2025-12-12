@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button, Modal, Form, Input, InputNumber, Alert, Select } from "antd";
 import axios from "axios";
 
+import "../Clients/ClientModal";
 const OrderFormModal = ({
   visible,
   onCancel,
@@ -13,19 +14,16 @@ const OrderFormModal = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Установка начальных значений при открытии модалки или смене заказа
   useEffect(() => {
     if (visible) {
       setError(null);
       if (currentOrder) {
-        // Режим редактирования
         form.setFieldsValue({
           clientId: currentOrder.clientId,
           status: currentOrder.status,
           totalAmount: currentOrder.totalAmount,
         });
       } else {
-        // Режим создания
         form.resetFields();
       }
     }
@@ -114,7 +112,7 @@ const OrderFormModal = ({
                 .toLowerCase()
                 .includes(input.toLowerCase())
             }
-            disabled={!!currentOrder} // Нельзя менять клиента в режиме редактирования
+            disabled={!!currentOrder}
           >
             {clients &&
               clients.map((client) => (

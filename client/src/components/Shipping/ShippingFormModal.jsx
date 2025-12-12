@@ -1,18 +1,15 @@
-// src/components/ShippingFormModal.jsx
-
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Form, Alert } from "react-bootstrap";
 import axios from "axios";
 import { useAuth } from "../../contexts/AuthContext";
 
 const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
-  // Начальное состояние формы
   const initialState = {
     orderId: "",
     trackingNumber: "",
     carrier: "",
-    deliveryDate: "", // формат YYYY-MM-DD
-    status: "Shipped", // По умолчанию "Отправлено" при создании
+    deliveryDate: "",
+    status: "Shipped",
   };
 
   const [formData, setFormData] = useState(initialState);
@@ -20,24 +17,19 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
   const [error, setError] = useState(null);
   const { token } = useAuth();
 
-  // Определяем, являемся ли мы в режиме редактирования
   const isEditing = !!editingItem;
 
-  // Эффект для загрузки данных редактируемого элемента в форму
   useEffect(() => {
     if (isEditing) {
-      // Приводим данные к формату, который ждет форма
       setFormData({
         orderId: editingItem.orderId || "",
         trackingNumber: editingItem.trackingNumber || "",
         carrier: editingItem.carrier || "",
-        // backend возвращает 'YYYY-MM-DD' для DeliveryDate,
-        // что подходит для input type="date"
         deliveryDate: editingItem.deliveryDate || "",
         status: editingItem.status || "Shipped",
       });
     } else {
-      setFormData(initialState); // Сброс для режима создания
+      setFormData(initialState);
     }
   }, [editingItem, isEditing]);
 
@@ -46,7 +38,7 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
       ...formData,
       [e.target.name]: e.target.value,
     });
-    setError(null); // Сброс ошибки при изменении полей
+    setError(null);
   };
 
   const handleSubmit = async (e) => {
@@ -54,7 +46,6 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
     setLoading(true);
     setError(null);
 
-    // Проверка обязательных полей
     if (!formData.orderId || !formData.trackingNumber || !formData.carrier) {
       setError("Пожалуйста, заполните ID заказа, Трекинг № и Перевозчика.");
       setLoading(false);
@@ -68,9 +59,6 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
       };
 
       if (isEditing) {
-        // РЕЖИМ РЕДАКТИРОВАНИЯ (PUT)
-        // Отправляем только те поля, которые можно редактировать,
-        // OrderID не должен меняться при редактировании доставки
         const updatePayload = {
           status: formData.status,
           deliveryDate: formData.deliveryDate,
@@ -84,7 +72,6 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
           config
         );
       } else {
-        // РЕЖИМ СОЗДАНИЯ (POST)
         response = await axios.post(
           "http://localhost:5000/api/data/shipping",
           formData,
@@ -92,9 +79,8 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
         );
       }
 
-      // Вызываем внешний обработчик для обновления списка
       onSave(response.data, isEditing);
-      handleClose(); // Закрываем модальное окно
+      handleClose();
     } catch (err) {
       console.error(
         "Ошибка сохранения данных о доставке:",
@@ -104,11 +90,9 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
       let msg = "Ошибка сервера при сохранении.";
       if (err.response) {
         if (err.response.status === 409) {
-          // КОНКРЕТНАЯ ОБРАБОТКА КОНФЛИКТА (UNIQUE CONSTRAINT)
           msg =
             "Заказ уже имеет запись о доставке. Пожалуйста, закройте окно и отредактируйте существующую запись.";
         } else if (err.response.data && err.response.data.message) {
-          // Сообщение от сервера (например, "Необходимо указать ID заказа...")
           msg = err.response.data.message;
         } else {
           msg = `Ошибка: ${err.response.status} ${err.response.statusText}`;
@@ -127,7 +111,6 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
     }
   };
 
-  // Функция сброса состояния и закрытия
   const handleModalClose = () => {
     setError(null);
     setFormData(initialState);
@@ -149,7 +132,6 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
       <Modal.Body>
         {error && <Alert variant="danger">{error}</Alert>}
         <Form onSubmit={handleSubmit}>
-          {/* Order ID - Только для режима создания */}
           {!isEditing && (
             <Form.Group className="mb-3">
               <Form.Label>ID Заказа</Form.Label>
@@ -168,7 +150,6 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
             </Form.Group>
           )}
 
-          {/* Tracking Number */}
           <Form.Group className="mb-3">
             <Form.Label>Трекинг №</Form.Label>
             <Form.Control
@@ -181,7 +162,6 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
             />
           </Form.Group>
 
-          {/* Carrier */}
           <Form.Group className="mb-3">
             <Form.Label>Перевозчик</Form.Label>
             <Form.Control
@@ -194,7 +174,6 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
             />
           </Form.Group>
 
-          {/* Delivery Date */}
           <Form.Group className="mb-3">
             <Form.Label>Ожидаемая дата доставки</Form.Label>
             <Form.Control
@@ -205,7 +184,6 @@ const ShippingFormModal = ({ show, handleClose, onSave, editingItem }) => {
             />
           </Form.Group>
 
-          {/* Status - Только для режима редактирования */}
           {isEditing && (
             <Form.Group className="mb-3">
               <Form.Label>Статус Доставки</Form.Label>

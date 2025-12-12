@@ -1,11 +1,8 @@
-// src/pages/RegisterPage.jsx
-
 import React, { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext"; // <<< ИМПОРТ КОНТЕКСТА
+import { useAuth } from "../../contexts/AuthContext";
 
-// !!! Убедитесь, что этот роут не защищен на сервере !!!
 const API_URL_REGISTER = "http://localhost:5000/api/data/register";
 const API_URL_LOGIN = "http://localhost:5000/api/auth/login";
 
@@ -21,7 +18,6 @@ const RegisterPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  // --- ФУНКЦИЯ АВТОМАТИЧЕСКОГО ВХОДА ---
   const handleAutoLogin = async (email, password) => {
     try {
       const loginResponse = await axios.post(API_URL_LOGIN, {
@@ -81,14 +77,13 @@ const RegisterPage = () => {
 
   return (
     <div className="auth-container">
-           {" "}
+      {" "}
       <div className="auth-card">
-                <h2>Создать аккаунт</h2>       {" "}
-        {error && <p className="auth-error">{error}</p>}       {" "}
-        {successMessage && <p className="auth-success">{successMessage}</p>}   
-           {" "}
+        <h2>Создать аккаунт</h2>{" "}
+        {error && <p className="auth-error">{error}</p>}{" "}
+        {successMessage && <p className="auth-success">{successMessage}</p>}{" "}
         <form onSubmit={handleSubmit}>
-                   {" "}
+          {" "}
           <div className="form-group">
             <label>Имя/ФИО</label>
             <input
@@ -97,8 +92,7 @@ const RegisterPage = () => {
               onChange={(e) => setName(e.target.value)}
               required
             />
-          </div>
-                   {" "}
+          </div>{" "}
           <div className="form-group">
             <label>Email</label>
             <input
@@ -107,8 +101,7 @@ const RegisterPage = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-          </div>
-                   {" "}
+          </div>{" "}
           <div className="form-group">
             <label>Телефон</label>
             <input
@@ -116,8 +109,7 @@ const RegisterPage = () => {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
-          </div>
-                   {" "}
+          </div>{" "}
           <div className="form-group">
             <label>Пароль</label>
             <input
@@ -126,22 +118,18 @@ const RegisterPage = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-          </div>
-                   {" "}
+          </div>{" "}
           <button type="submit" className="auth-button" disabled={loading}>
-                       {" "}
-            {loading ? "Регистрация и вход..." : "Зарегистрироваться и войти"} 
-                   {" "}
-          </button>
-                 {" "}
-        </form>
-               {" "}
+            {" "}
+            {loading
+              ? "Регистрация и вход..."
+              : "Зарегистрироваться и войти"}{" "}
+          </button>{" "}
+        </form>{" "}
         <p className="auth-link-text">
-                    Уже есть аккаунт? <Link to="/login">Войти</Link>       {" "}
-        </p>
-             {" "}
-      </div>
-         {" "}
+          Уже есть аккаунт? <Link to="/login">Войти</Link>{" "}
+        </p>{" "}
+      </div>{" "}
     </div>
   );
 };

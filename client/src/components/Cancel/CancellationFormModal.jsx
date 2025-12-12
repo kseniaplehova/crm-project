@@ -84,17 +84,14 @@ const CancellationFormModal = ({
       backdrop="static"
       keyboard={false}
     >
-           {" "}
       <Modal.Header closeButton>
-                <Modal.Title>Создать запись об отмене (Админ)</Modal.Title>     {" "}
+        <Modal.Title>Создать запись об отмене (Админ)</Modal.Title>
       </Modal.Header>
-           {" "}
       <Modal.Body>
-                {error && <Alert variant="danger">{error}</Alert>}       {" "}
+        {error && <Alert variant="danger">{error}</Alert>}
         <Form onSubmit={handleSubmit}>
-                   {" "}
           <Form.Group className="mb-3">
-                        <Form.Label>ID Заказа</Form.Label>           {" "}
+            <Form.Label>ID Заказа</Form.Label>
             <Form.Control
               type="number"
               name="orderId"
@@ -104,16 +101,13 @@ const CancellationFormModal = ({
               required
               min="1"
             />
-                       {" "}
             <Form.Text className="text-muted">
-                            Создание записи об отмене автоматически меняет
-              статус заказа на "Cancelled".            {" "}
+              Создание записи об отмене автоматически меняет статус заказа на
+              "Cancelled".
             </Form.Text>
-                     {" "}
           </Form.Group>
-                   {" "}
           <Form.Group className="mb-3">
-                        <Form.Label>Причина отмены</Form.Label>           {" "}
+            <Form.Label>Причина отмены</Form.Label>
             <Form.Control
               as="textarea"
               name="reason"
@@ -123,30 +117,21 @@ const CancellationFormModal = ({
               required
               rows={3}
             />
-                     {" "}
           </Form.Group>
-                 {" "}
         </Form>
-             {" "}
       </Modal.Body>
-           {" "}
       <Modal.Footer>
-               {" "}
         <Button
           variant="secondary"
           onClick={handleModalClose}
           disabled={loading}
         >
-                    Отмена        {" "}
+          Отмена
         </Button>
-               {" "}
         <Button variant="danger" onClick={handleSubmit} disabled={loading}>
-                    {loading ? "Создание..." : "Создать запись об отмене"}     
-           {" "}
+          {loading ? "Создание..." : "Создать запись об отмене"}
         </Button>
-             {" "}
       </Modal.Footer>
-         {" "}
     </Modal>
   );
 };

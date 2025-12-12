@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import "./ClientModal.css"; // Переиспользуем стили модального окна клиента
+import "./ClientModal.css";
 
-// URL для работы с заказами
 const API_URL_ORDERS = "http://localhost:5000/api/data/orders";
-// URL для получения списка клиентов (для выпадающего списка)
 const API_URL_CLIENTS = "http://localhost:5000/api/data/clients";
 
-// Принимаем orderData для режима редактирования, а также onOrderAdded/onOrderUpdated
 const OrderModal = ({
   show,
   handleClose,
@@ -16,18 +13,17 @@ const OrderModal = ({
   orderData,
 }) => {
   const isEditing = !!orderData;
-  const [clients, setClients] = useState([]); // Список клиентов для выпадающего списка
+  const [clients, setClients] = useState([]);
 
   const [clientId, setClientId] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [status, setStatus] = useState("New");
 
   const [loading, setLoading] = useState(false);
-  const [dataLoading, setDataLoading] = useState(true); // Загрузка клиентов
+  const [dataLoading, setDataLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // --- 1. Загрузка списка клиентов при открытии ---
   useEffect(() => {
     const fetchClients = async () => {
       setDataLoading(true);
@@ -47,24 +43,19 @@ const OrderModal = ({
       }
     };
 
-    // Загружаем клиентов только один раз при монтировании компонента или при необходимости
     if (show && clients.length === 0) {
       fetchClients();
     }
-  }, [show, clients.length]); // Зависимость от show, чтобы запустить, если список пуст
-
-  // --- 2. Заполнение формы при редактировании ---
+  }, [show, clients.length]);
   useEffect(() => {
     if (show) {
       setError(null);
       setSuccessMessage(null);
       if (isEditing && orderData) {
-        // Режим редактирования: заполняем поля
         setClientId(orderData.clientId || "");
         setTotalAmount(orderData.totalAmount || "");
         setStatus(orderData.status || "New");
       } else {
-        // Режим добавления: очищаем поля и ставим клиента по умолчанию (если есть)
         setClientId(clients.length > 0 ? clients[0].id : "");
         setTotalAmount("");
         setStatus("New");
@@ -72,7 +63,6 @@ const OrderModal = ({
     }
   }, [isEditing, orderData, show, clients]);
 
-  // --- 3. ФУНКЦИЯ ОТПРАВКИ ФОРМЫ (POST или PUT) ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -87,8 +77,8 @@ const OrderModal = ({
     }
 
     const orderDataToSend = {
-      clientId: parseInt(clientId), // Убедимся, что это число
-      totalAmount: parseFloat(totalAmount), // Убедимся, что это число
+      clientId: parseInt(clientId),
+      totalAmount: parseFloat(totalAmount),
       status,
     };
 
@@ -108,14 +98,12 @@ const OrderModal = ({
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Обработка успеха
       if (isEditing) {
         onOrderUpdated(response.data);
         setSuccessMessage(`Заказ ID ${orderData.id} успешно обновлен!`);
       } else {
         onOrderAdded(response.data);
         setSuccessMessage("Заказ успешно добавлен!");
-        // Очистка формы после добавления
         setTotalAmount("");
         setStatus("New");
       }
@@ -153,14 +141,13 @@ const OrderModal = ({
           <p>Загрузка данных...</p>
         ) : (
           <form onSubmit={handleSubmit}>
-            {/* 1. Выбор Клиента */}
             <div className="form-group">
               <label>Клиент:</label>
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 required
-                disabled={isEditing} // В режиме редактирования ID клиента обычно не меняют
+                disabled={isEditing}
               >
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>
@@ -175,7 +162,6 @@ const OrderModal = ({
               )}
             </div>
 
-            {/* 2. Сумма Заказа */}
             <div className="form-group">
               <label>Сумма:</label>
               <input
@@ -188,7 +174,6 @@ const OrderModal = ({
               />
             </div>
 
-            {/* 3. Статус Заказа */}
             <div className="form-group">
               <label>Статус:</label>
               <select

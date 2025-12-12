@@ -1,71 +1,85 @@
-// src/components/Clients/ClientList.js (Готовая и исправленная версия)
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import "./ClientList.css";
-// ИСПРАВЛЕН ИМПОРТ: Предполагаем, что файл называется ClientFormModal.jsx
+
 import ClientFormModal from "./ClientModal.js";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  Table,
+  Button,
+  Space,
+  Typography,
+  Card,
+  Alert,
+  message,
+  Popconfirm,
+  Tag,
+} from "antd";
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 
-const API_URL_BASE = "http://localhost:5000/api/data/clients";
+const { Title } = Typography;
+
+const API_URL_BASE = "/api/data/clients";
 
 const ClientList = () => {
-  // Получаем токен и пользователя из контекста
   const { token, user } = useAuth();
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingClient, setEditingClient] = useState(null);
 
-  // Функции для управления модальным окном
-  const openModal = () => setIsModalOpen(true); // Используется кнопкой "Добавить"
+  const openModal = () => setIsModalOpen(true);
   const closeModal = () => {
     setIsModalOpen(false);
-    setEditingClient(null); // Очищаем данные редактирования
+    setEditingClient(null);
   };
 
   const handleEditClick = (client) => {
-    setEditingClient(client); // Загружаем данные клиента в форму
+    setEditingClient(client);
     setIsModalOpen(true);
   };
 
-  // Обновление существующего клиента (Update)
-  const handleClientUpdated = (updatedClient) => {
-    setClients(
-      clients.map((client) =>
-        // Если ID совпадает, заменяем старый объект на новый
-        client.id === updatedClient.id ? updatedClient : client
-      )
-    );
-  };
+  const fetchClients = useCallback(async () => {
+    if (!token) {
+      setError("Ошибка аутентификации. Не найден токен.");
+      setLoading(false);
+      return;
+    }
 
-  // Обновление списка после добавления нового клиента (Create)
-  const handleNewClientAdded = (newClient) => {
-    setClients([newClient, ...clients]);
-  };
+    setLoading(true);
+    setError(null);
 
-  // --- ФУНКЦИЯ УДАЛЕНИЯ КЛИЕНТА (Delete) ---
-  const handleDelete = async (clientId) => {
-    // Запрещаем администратору удалять самого себя
-    if (user && user.id === clientId) {
+    try {
+      const response = await axios.get(API_URL_BASE, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setClients(response.data);
+    } catch (err) {
+      console.error("Ошибка загрузки клиентов:", err);
       setError(
+        "Не удалось загрузить данные клиентов. Проверьте сервер и токен."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  const handleDelete = async (clientId) => {
+    if (user && user.id === clientId) {
+      message.error(
         "Вы не можете удалить свою собственную учетную запись администратора."
       );
       return;
     }
 
-    if (
-      !window.confirm(
-        `Вы уверены, что хотите удалить клиента с ID ${clientId}? Это может вызвать проблемы, если у него есть заказы.`
-      )
-    ) {
-      return;
-    }
-
     if (!token) {
-      setError("Ошибка аутентификации. Пожалуйста, войдите снова.");
+      message.error("Ошибка аутентификации. Пожалуйста, войдите снова.");
       return;
     }
 
@@ -73,144 +87,146 @@ const ClientList = () => {
       await axios.delete(`${API_URL_BASE}/${clientId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      // Обновляем состояние, убирая удаленного клиента
-      setClients(clients.filter((client) => client.id !== clientId));
+      message.success("Клиент успешно удален.");
+      fetchClients();
     } catch (error) {
       console.error("Ошибка удаления клиента:", error);
-      // Обработка ошибки, если есть связанные заказы
-      const message =
+      const errorMessage =
         error.response?.status === 409
           ? "Невозможно удалить клиента: существуют связанные заказы."
           : error.response?.data?.message || "Ошибка удаления.";
 
-      setError(message);
+      message.error(errorMessage);
     }
   };
-  // ----------------------------------------
 
-  // --- ЗАГРУЗКА ДАННЫХ (Read) ---
-  useEffect(() => {
-    const fetchClients = async () => {
-      if (!token) {
-        setError("Ошибка аутентификации. Не найден токен.");
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await axios.get(
-          API_URL_BASE, // GET /api/data/clients
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        setClients(response.data);
-      } catch (err) {
-        console.error("Ошибка загрузки клиентов:", err);
-        setError(
-          "Не удалось загрузить данные клиентов. Проверьте сервер и токен."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchClients();
-  }, [token]);
-  // ----------------------------------------------------
-
-  // === РЕНДЕРИНГ ===
-  if (loading) {
-    return (
-      <div className="client-list-container">
-        <p className="status-message-list">Загрузка данных...</p>
-      </div>
+  const handleSuccess = (client) => {
+    message.success(
+      `Клиент успешно ${editingClient ? "обновлен" : "добавлен"}.`
     );
-  }
+    closeModal();
+    fetchClients();
+  };
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
+
+  const columns = [
+    {
+      title: "ID",
+      dataIndex: "id",
+      key: "id",
+      sorter: (a, b) => a.id - b.id,
+      width: 80,
+    },
+    {
+      title: "Имя",
+      dataIndex: "name",
+      key: "name",
+      sorter: (a, b) => a.name.localeCompare(b.name),
+    },
+    { title: "Email", dataIndex: "email", key: "email" },
+    {
+      title: "Телефон",
+      dataIndex: "phone",
+      key: "phone",
+      render: (text) => text || "—",
+    },
+    {
+      title: "Роль",
+      dataIndex: "role",
+      key: "role",
+      render: (role) => (
+        <Tag color={role === "admin" ? "red" : "blue"}>
+          {role.toUpperCase()}
+        </Tag>
+      ),
+    },
+    {
+      title: "Дата Создания",
+      dataIndex: "created",
+      key: "created",
+      render: (text) => new Date(text).toLocaleDateString(),
+    },
+    {
+      title: "Действия",
+      key: "actions",
+      render: (_, record) => (
+        <Space size="middle">
+          <Button
+            icon={<EditOutlined />}
+            onClick={() => handleEditClick(record)}
+          >
+            Редактировать
+          </Button>
+          <Popconfirm
+            title="Вы уверены, что хотите удалить этого клиента?"
+            description="Это может привести к проблемам с заказами."
+            onConfirm={() => handleDelete(record.id)}
+            okText="Да, удалить"
+            cancelText="Нет"
+            disabled={user && user.id === record.id}
+          >
+            <Button
+              icon={<DeleteOutlined />}
+              danger
+              disabled={user && user.id === record.id}
+            >
+              Удалить
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
-    <div className="client-list-container">
-      <h2>👤 Управление Клиентами ({clients.length})</h2>
+    <Card>
+      <Title level={2}>
+        <UserOutlined /> Управление Клиентами
+      </Title>
+
+      <Button
+        type="primary"
+        icon={<PlusOutlined />}
+        onClick={() => {
+          setEditingClient(null);
+          openModal();
+        }}
+        style={{ marginBottom: 16 }}
+      >
+        Добавить Клиента
+      </Button>
 
       {error && (
-        <div
-          className="status-message-list"
-          style={{
-            backgroundColor: "#f8d7da",
-            color: "#721c24",
-            padding: "10px",
-            margin: "10px 0",
-            border: "1px solid #f5c6cb",
-          }}
-        >
-          {error}
-        </div>
+        <Alert
+          message="Ошибка загрузки"
+          description={error}
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
       )}
 
-      {/* Кнопка "Добавить" теперь использует openModal */}
-      <button
-        className="btn-add"
-        onClick={openModal}
-        style={{ backgroundColor: "#007bff", margin: "10px 0" }}
-      >
-        + Добавить Клиента
-      </button>
+      <Table
+        columns={columns}
+        dataSource={clients}
+        rowKey="id"
+        loading={loading}
+        pagination={{ pageSize: 10 }}
+        scroll={{ x: "max-content" }}
+        locale={{ emptyText: "Нет данных о клиентах." }}
+      />
 
-      <table className="client-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Имя</th>
-            <th>Email</th>
-            <th>Телефон</th>
-            <th>Роль</th>
-            <th>Дата Создания</th>
-            <th>Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-          {clients.map((client) => (
-            <tr key={client.id || client.email}>
-              <td>{client.id}</td>
-              <td>{client.name}</td>
-              <td>{client.email}</td>
-              <td>{client.phone || "—"}</td>
-              <td>{client.role}</td>
-              <td>{client.created}</td>
-              <td>
-                <button
-                  className="btn-edit"
-                  onClick={() => handleEditClick(client)}
-                  style={{ marginRight: "5px" }}
-                >
-                  Редактировать
-                </button>
-                <button
-                  className="btn-delete"
-                  onClick={() => handleDelete(client.id)}
-                  // Запрещаем удаление, если ID совпадает с текущим пользователем
-                  disabled={user && user.id === client.id}
-                >
-                  Удалить
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* ИСПОЛЬЗУЕМ ИСПРАВЛЕННОЕ ИМЯ КОМПОНЕНТА: ClientFormModal */}
       <ClientFormModal
         show={isModalOpen}
         handleClose={closeModal}
-        onClientAdded={handleNewClientAdded}
+        onClientAdded={handleSuccess}
         clientData={editingClient}
-        onClientUpdated={handleClientUpdated}
+        onClientUpdated={handleSuccess}
       />
-    </div>
+    </Card>
   );
 };
 

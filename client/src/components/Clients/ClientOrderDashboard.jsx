@@ -13,7 +13,12 @@ import {
   Modal,
   Space,
 } from "antd";
-import { SendOutlined, ReloadOutlined, StopOutlined } from "@ant-design/icons";
+import {
+  SendOutlined,
+  ReloadOutlined,
+  StopOutlined,
+  ShoppingCartOutlined,
+} from "@ant-design/icons";
 import axios from "axios";
 
 const { Title } = Typography;
@@ -53,23 +58,6 @@ const ClientOrderDashboard = () => {
     const orderId = record.id;
     console.log("Кликнули на заказ ID:", orderId);
     setSelectedOrderDetails(null);
-
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) throw new Error("Токен не найден.");
-
-      const detailsResponse = await axios.get(
-        `/api/data/orders/${orderId}/details`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      setSelectedOrderDetails(detailsResponse.data);
-    } catch (error) {
-      console.error("Ошибка загрузки деталей заказа:", error);
-      setSelectedOrderDetails([]);
-    }
   };
 
   const handleOrderSubmit = async (values) => {
@@ -112,7 +100,7 @@ const ClientOrderDashboard = () => {
         try {
           await axios.patch(
             `${API_ENDPOINT_ORDERS}/${orderId}/cancel`,
-            {}, // <--- ИЗМЕНЕНИЕ ЗДЕСЬ
+            {},
             {
               headers: {
                 Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -152,13 +140,12 @@ const ClientOrderDashboard = () => {
       title: "Дата",
       dataIndex: "date",
       key: "date",
-      render: (text) => new Date(text).toLocaleDateString(),
+      render: (text) => new Date(text).toLocaleString(),
     },
     {
       title: "Описание товара",
       dataIndex: "description",
       key: "description",
-      // Добавьтеellipsis: true, чтобы длинные описания не ломали макет
       ellipsis: true,
     },
     {
@@ -166,6 +153,7 @@ const ClientOrderDashboard = () => {
       dataIndex: "totalAmount",
       key: "totalAmount",
       render: (amount) => `€ ${amount}`,
+      align: "right",
     },
 
     {
@@ -195,12 +183,11 @@ const ClientOrderDashboard = () => {
   ];
 
   return (
-    <div style={{ padding: "20px" }}>
-      <Title level={2} style={{ textAlign: "center" }}>
-        Личный Кабинет Заказов
+    <Card>
+      <Title level={2}>
+        <ShoppingCartOutlined /> Личный Кабинет Заказов
       </Title>
 
-      {/* Секция 1: Форма Добавления Заказа */}
       <Card
         title="Сделать Новый Заказ"
         style={{ marginBottom: 30 }}
@@ -264,8 +251,7 @@ const ClientOrderDashboard = () => {
         </Form>
       </Card>
 
-      {/* Секция 2: Список Заказов и Статус */}
-      <Card title="Ваши Заказы" style={{ marginBottom: 30 }}>
+      <Card title="Ваши Заказы">
         {error && (
           <Alert
             message="Ошибка"
@@ -282,13 +268,14 @@ const ClientOrderDashboard = () => {
           rowKey="id"
           loading={loading}
           pagination={{ pageSize: 10 }}
+          scroll={{ x: "max-content" }}
           locale={{ emptyText: "У вас пока нет заказов." }}
           onRow={(record) => ({
             onClick: () => handleRowClick(record),
           })}
         />
       </Card>
-    </div>
+    </Card>
   );
 };
 
